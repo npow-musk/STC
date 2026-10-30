@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "STC Associate 輸出管理 Master",
+  "short_name": "STC Associate",
+  "description": "STC Associate試験対策・単語帳・模試クイズ・学習進捗",
+  "lang": "ja",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

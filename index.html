@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-100 dark:bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>STC Associate 輸出管理 Master</title>
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="STC Associate">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js for progress visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    },
+                    colors: {
+                        ios: {
+                            blue: '#007AFF',
+                            green: '#34C759',
+                            orange: '#FF9500',
+                            red: '#FF3B30',
+                            purple: '#AF52DE',
+                            gray: '#8E8E93',
+                            cardBgLight: '#FFFFFF',
+                            cardBgDark: '#1C1C1E',
+                            bgLight: '#F2F2F7',
+                            bgDark: '#000000'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Styles for iOS feel & Flashcard 3D flip */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+
+        .backface-hidden {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+
+        /* Hide scrollbars for smooth app feel */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Installed PWA: use the real iPhone status bar and safe areas */
+        @media (display-mode: standalone) {
+            body { min-height: 100dvh; }
+            #appContainer { height: 100dvh; max-height: none; }
+            #appContainer > .ios-status-simulation { display: none !important; }
+            #appContainer > header {
+                padding-top: max(0.75rem, env(safe-area-inset-top));
+            }
+        }
+        @supports (-webkit-touch-callout: none) {
+            @media (display-mode: standalone) {
+                #appContainer { min-height: -webkit-fill-available; }
+            }
+        }
+
+        /* iOS notch & status bar padding simulation */
+        .pt-safe {
+            padding-top: max(1.25rem, env(safe-area-inset-top));
+        }
+        .pb-safe {
+            padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+        }
+
+        /* Card active scale effect */
+        .active-press:active {
+            transform: scale(0.97);
+            transition: transform 0.1s ease;
+        }
+    </style>
+</head>
+<body class="h-full w-full flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-900 text-slate-900 dark:text-slate-100 antialiased overflow-hidden">
+
+    <!-- Mobile Device Frame Container -->
+    <div id="appContainer" class="w-full h-full max-w-md max-h-[920px] bg-ios-bgLight dark:bg-ios-bgDark sm:rounded-[48px] sm:shadow-2xl sm:border-[8px] border-slate-800 dark:border-slate-700 flex flex-col relative overflow-hidden transition-colors duration-300">
+
+        <!-- iOS Status Bar Simulation -->
+        <div class="ios-status-simulation w-full pt-3 px-7 flex justify-between items-center text-xs font-semibold select-none z-50 text-slate-800 dark:text-slate-100">
+            <span id="currentTime">09:41</span>
+            <!-- Camera Dynamic Island Notch (Simulated) -->
+            <div class="w-20 h-4 bg-black rounded-full hidden sm:block"></div>
+            <div class="flex items-center space-x-1.5">
+                <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+                <i data-lucide="battery-charging" class="w-4 h-4"></i>
+            </div>
+        </div>
+
+        <!-- Header / Top Bar -->
+        <header class="px-5 py-3 flex items-center justify-between z-40">
+            <div>
+                <h1 id="headerTitle" class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">STC Associate</h1>
+                <p id="headerSubtitle" class="text-xs text-slate-500 dark:text-slate-400">安全保障貿易管理 対策</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="themeToggleBtn" onclick="toggleDarkMode()" class="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 active-press">
+                    <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+                    <i data-lucide="sun" class="w-5 h-5 block dark:hidden"></i>
+                </button>
+                <button onclick="resetAllData()" title="データリセット" class="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 active-press">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area (Views) -->
+        <main class="flex-1 relative overflow-hidden px-4 pb-2">
+
+            <!-- TAB 1: FLASHCARDS VIEW -->
+            <section id="flashcardsView" class="w-full h-full flex flex-col transition-all duration-300">
+                <!-- Category Selector Slider -->
+                <div class="flex space-x-2 overflow-x-auto no-scrollbar py-2 px-1 mb-2">
+                    <button onclick="filterFlashcards('all')" id="cat-all" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-ios-blue text-white shadow-sm transition">すべて</button>
+                    <button onclick="filterFlashcards('cargo_tech')" id="cat-cargo_tech" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">貨物 vs 技術(48/25条)</button>
+                    <button onclick="filterFlashcards('catchall')" id="cat-catchall" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">キャッチオール規制</button>
+                    <button onclick="filterFlashcards('group_a')" id="cat-group_a" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">グループA・ホワイト国</button>
+                    <button onclick="filterFlashcards('exemptions')" id="cat-exemptions" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">特例・例外規定</button>
+                </div>
+
+                <!-- Card Deck Container -->
+                <div class="flex-1 flex flex-col justify-center items-center relative my-2">
+                    <!-- Progress Bar above Card -->
+                    <div class="w-full flex justify-between items-center px-2 mb-2 text-xs font-medium text-slate-500">
+                        <span id="cardCounter">1 / 10</span>
+                        <span id="cardMasteryBadge" class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px]">未習得</span>
+                    </div>
+
+                    <!-- 3D Flip Card -->
+                    <div id="flashcard" onclick="flipCard()" class="w-full h-80 sm:h-96 perspective-1000 cursor-pointer group active-press">
+                        <div id="cardInner" class="w-full h-full relative transform-style-3d transition-transform duration-500 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-ios-cardBgDark p-6 flex flex-col justify-between">
+                            
+                            <!-- Card Front -->
+                            <div class="absolute inset-0 backface-hidden p-6 flex flex-col justify-between rounded-3xl bg-white dark:bg-ios-cardBgDark">
+                                <div class="flex justify-between items-center">
+                                    <span id="cardCategory" class="text-xs font-semibold uppercase tracking-wider text-ios-blue bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-md">貨物 vs 技術</span>
+                                    <i data-lucide="rotate-3d" class="w-5 h-5 text-slate-400"></i>
+                                </div>
+                                <div class="text-center my-auto">
+                                    <h2 id="cardTerm" class="text-2xl font-bold text-slate-900 dark:text-white mb-2 leading-snug">外為法第48条と第25条の違い</h2>
+                                    <p class="text-xs text-slate-400 mt-2">タップして裏面（解説）を見る</p>
+                                </div>
+                                <div class="flex justify-center text-xs text-slate-400">
+                                    <span>STC Associate頻出用語</span>
+                                </div>
+                            </div>
+
+                            <!-- Card Back -->
+                            <div class="absolute inset-0 backface-hidden rotate-y-180 p-6 flex flex-col justify-between rounded-3xl bg-slate-900 text-white dark:bg-slate-800">
+                                <div class="flex justify-between items-center">
+                                    <span id="cardCategoryBack" class="text-xs font-semibold uppercase tracking-wider text-ios-orange bg-orange-950/40 px-2.5 py-1 rounded-md">ポイント解説</span>
+                                    <i data-lucide="info" class="w-5 h-5 text-ios-orange"></i>
+                                </div>
+                                <div class="my-auto overflow-y-auto max-h-56 pr-1 no-scrollbar text-left">
+                                    <p id="cardDefinition" class="text-sm sm:text-base text-slate-200 leading-relaxed font-normal">
+                                        ・<b>第48条（貨物の輸出）</b>: 「モノ（ハードウェア）」の輸出規制。<br>
+                                        ・<b>第25条（役務取引・技術提供）</b>: 設計図、プログラム、ノウハウ等の「技術（ソフトウェア・情報）」提供規制。
+                                    </p>
+                                    <div id="cardExample" class="mt-3 p-2.5 rounded-xl bg-slate-800/80 dark:bg-slate-700/50 border border-slate-700 text-xs text-ios-orange">
+                                        <b>試験対策の肝:</b> 問題文の主語が「製品の出荷」か「現地での技術指導」かを見極めること！
+                                    </div>
+                                </div>
+                                <div class="text-center text-xs text-slate-400">
+                                    <span>タップして表面に戻る</span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Navigation & Action Buttons -->
+                    <div class="w-full flex items-center justify-between px-2 mt-4 space-x-3">
+                        <button onclick="prevCard()" class="p-3 rounded-2xl bg-white dark:bg-ios-cardBgDark shadow border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active-press">
+                            <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                        </button>
+                        
+                        <button id="toggleMasteredBtn" onclick="toggleMastered()" class="flex-1 py-3 px-4 rounded-2xl bg-slate-200 dark:bg-slate-800 font-semibold text-xs flex items-center justify-center space-x-2 text-slate-700 dark:text-slate-200 active-press">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-ios-green"></i>
+                            <span id="masteredBtnText">覚えたに設定</span>
+                        </button>
+
+                        <button onclick="nextCard()" class="p-3 rounded-2xl bg-white dark:bg-ios-cardBgDark shadow border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active-press">
+                            <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: QUIZ VIEW -->
+            <section id="quizView" class="w-full h-full flex flex-col hidden transition-all duration-300">
+                <!-- Quiz Start Screen -->
+                <div id="quizStartScreen" class="flex-1 flex flex-col justify-between py-4">
+                    <div class="space-y-4">
+                        <div class="p-5 rounded-3xl bg-white dark:bg-ios-cardBgDark shadow-sm border border-slate-200 dark:border-slate-800">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-ios-blue flex items-center justify-center mb-3">
+                                <i data-lucide="award" class="w-6 h-6"></i>
+                            </div>
+                            <h2 class="text-lg font-bold text-slate-900 dark:text-white">STC Associate 本試験模試</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                本試験の出題傾向（貨物・技術の違い、キャッチオール、例外規定、ひっかけパターン）に準拠した多肢選択問題です。
+                            </p>
+                        </div>
+
+                        <!-- Mode Options -->
+                        <div class="space-y-2">
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">出題数選択</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setQuizLength(5)" id="qlen-5" class="qlen-btn py-3 px-4 rounded-2xl bg-ios-blue text-white font-semibold text-xs text-center border-2 border-ios-blue active-press">5問（サクッと練習）</button>
+                                <button onclick="setQuizLength(10)" id="qlen-10" class="qlen-btn py-3 px-4 rounded-2xl bg-white dark:bg-ios-cardBgDark text-slate-700 dark:text-slate-300 font-semibold text-xs text-center border border-slate-200 dark:border-slate-800 active-press">10問（本格挑戦）</button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start space-x-3">
+                            <i data-lucide="help-circle" class="w-5 h-5 text-ios-orange shrink-0 mt-0.5"></i>
+                            <div class="text-xs text-amber-800 dark:text-amber-300 leading-normal">
+                                解答後に即座に「正解・不正解」と詳細な法制度解説が表示されます。ひっかけポイントを徹底マスターしましょう。
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="startQuiz()" class="w-full py-4 rounded-2xl bg-ios-blue text-white font-bold text-sm shadow-md active-press flex items-center justify-center space-x-2">
+                        <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                        <span>クイズを開始する</span>
+                    </button>
+                </div>
+
+                <!-- Quiz Active Screen -->
+                <div id="quizActiveScreen" class="flex-1 flex flex-col hidden py-2 overflow-y-auto no-scrollbar">
+                    <!-- Quiz Progress Header -->
+                    <div class="flex items-center justify-between mb-3 px-1">
+                        <span id="quizProgressText" class="text-xs font-bold text-ios-blue">問題 1 / 5</span>
+                        <div class="flex items-center space-x-1 text-xs text-slate-500">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                            <span id="quizTimer">00:00</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-4">
+                        <div id="quizProgressBar" class="bg-ios-blue h-full w-0 transition-all duration-300"></div>
+                    </div>
+
+                    <!-- Question Box -->
+                    <div class="p-5 rounded-3xl bg-white dark:bg-ios-cardBgDark shadow-sm border border-slate-200 dark:border-slate-800 mb-4">
+                        <span id="quizCategoryTag" class="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 mb-2">キャッチオール規制</span>
+                        <p id="quizQuestionText" class="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+                            質問文がここに表示されます...
+                        </p>
+                    </div>
+
+                    <!-- Options Container -->
+                    <div id="quizOptionsContainer" class="space-y-2.5 mb-4">
+                        <!-- Dynamic options will be injected here -->
+                    </div>
+
+                    <!-- Explanation Box (Hidden until answered) -->
+                    <div id="quizExplanationBox" class="hidden p-4 rounded-2xl bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-xs mb-4">
+                        <div class="flex items-center space-x-1.5 font-bold text-ios-blue mb-1">
+                            <i data-lucide="book-open" class="w-4 h-4"></i>
+                            <span>解説 & ひっかけポイント</span>
+                        </div>
+                        <p id="quizExplanationText" class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                            解説テキスト
+                        </p>
+                    </div>
+
+                    <!-- Next Question Button -->
+                    <button id="nextQuestionBtn" onclick="nextQuestion()" class="hidden w-full py-3.5 rounded-2xl bg-ios-blue text-white font-bold text-xs shadow-md active-press flex items-center justify-center space-x-1 mt-auto">
+                        <span>次の問題へ</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Quiz Result Screen -->
+                <div id="quizResultScreen" class="flex-1 flex flex-col justify-between hidden py-4 text-center">
+                    <div class="my-auto space-y-4">
+                        <div class="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-ios-green flex items-center justify-center mx-auto border-4 border-emerald-500/20">
+                            <i data-lucide="check-circle" class="w-10 h-10"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">テスト完了！</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">お疲れ様でした。結果を確認しましょう。</p>
+                        </div>
+
+                        <!-- Score Card -->
+                        <div class="p-5 rounded-3xl bg-white dark:bg-ios-cardBgDark shadow-sm border border-slate-200 dark:border-slate-800 flex justify-around items-center">
+                            <div>
+                                <span class="text-xs text-slate-400 block">スコア</span>
+                                <span id="quizScoreText" class="text-3xl font-extrabold text-ios-blue">80%</span>
+                            </div>
+                            <div class="h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
+                            <div>
+                                <span class="text-xs text-slate-400 block">正解数</span>
+                                <span id="quizCorrectCountText" class="text-2xl font-bold text-slate-800 dark:text-slate-200">4 / 5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <button onclick="startQuiz()" class="w-full py-3.5 rounded-2xl bg-ios-blue text-white font-bold text-xs shadow-md active-press">もう一度挑戦する</button>
+                        <button onclick="switchTab('progress')" class="w-full py-3.5 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs active-press">学習統計を見る</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: PROGRESS VIEW -->
+            <section id="progressView" class="w-full h-full flex flex-col hidden overflow-y-auto no-scrollbar py-2 space-y-4">
+                
+                <!-- Overview Cards Grid -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-4 rounded-3xl bg-white dark:bg-ios-cardBgDark border border-slate-200 dark:border-slate-800">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-semibold text-slate-400">暗記マスター率</span>
+                            <i data-lucide="layers" class="w-4 h-4 text-ios-blue"></i>
+                        </div>
+                        <span id="statMasteryPercent" class="text-2xl font-bold text-slate-900 dark:text-white">0%</span>
+                        <p class="text-[10px] text-slate-400 mt-0.5"><span id="statMasteredCount">0</span> / <span id="statTotalCards">10</span> 項目習得</p>
+                    </div>
+
+                    <div class="p-4 rounded-3xl bg-white dark:bg-ios-cardBgDark border border-slate-200 dark:border-slate-800">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-semibold text-slate-400">クイズ平均正答率</span>
+                            <i data-lucide="target" class="w-4 h-4 text-ios-green"></i>
+                        </div>
+                        <span id="statQuizAvg" class="text-2xl font-bold text-slate-900 dark:text-white">--</span>
+                        <p class="text-[10px] text-slate-400 mt-0.5">累計受検数: <span id="statQuizCount">0</span> 回</p>
+                    </div>
+                </div>
+
+                <!-- Mastery Progress Doughnut Chart -->
+                <div class="p-4 rounded-3xl bg-white dark:bg-ios-cardBgDark border border-slate-200 dark:border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">分野別理解度状況</h3>
+                    <div class="h-44 w-full relative flex items-center justify-center">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Quiz History List -->
+                <div class="p-4 rounded-3xl bg-white dark:bg-ios-cardBgDark border border-slate-200 dark:border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">直近の模試履歴</h3>
+                    <div id="quizHistoryList" class="space-y-2 text-xs">
+                        <p class="text-center text-slate-400 py-4">履歴はまだありません</p>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- Bottom Tab Navigation Bar (iOS Style) -->
+        <nav class="w-full bg-white/80 dark:bg-ios-cardBgDark/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-6 py-2 flex justify-around items-center z-50 pb-safe">
+            <button onclick="switchTab('flashcards')" id="tab-flashcards" class="tab-btn flex flex-col items-center text-ios-blue">
+                <i data-lucide="copy" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium mt-1">単語帳</span>
+            </button>
+            <button onclick="switchTab('quiz')" id="tab-quiz" class="tab-btn flex flex-col items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <i data-lucide="help-circle" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium mt-1">問題演習</span>
+            </button>
+            <button onclick="switchTab('progress')" id="tab-progress" class="tab-btn flex flex-col items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium mt-1">学習分析</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        /* ==================== DATA DEFINITIONS ==================== */
+
+        // Flashcards Database
+        const flashcardsData = [
+            {
+                id: 1,
+                category: 'cargo_tech',
+                categoryLabel: '貨物 vs 技術',
+                term: '外為法第48条 と 第25条',
+                definition: '・48条：貨物（モノ）の輸出規制。<br>・25条：役務取引（技術・プログラム・ノウハウ等）の提供規制。',
+                example: 'ひっかけ傾向：問題文で「製品の輸出」か「技術データの送信・指導」かをしっかり分けること！'
+            },
+            {
+                id: 2,
+                category: 'catchall',
+                categoryLabel: 'キャッチオール規制',
+                term: '客観要件（用途要件・需要者要件）',
+                definition: 'リスト規制非該当品でも、大量破壊兵器等の開発等に用いられるおそれがあるかを「輸出者が自ら確認」して申請判断する要件。',
+                example: '試験ポイント：インフォーム要件（経産大臣からの通知）がなくても、客観要件に該当すれば許可申請が必要。'
+            },
+            {
+                id: 3,
+                category: 'catchall',
+                categoryLabel: 'キャッチオール規制',
+                term: 'インフォーム要件',
+                definition: '経済産業大臣から「許可申請をしなさい」と書面等で通知を受けた場合、必ず許可申請が必要となる要件。',
+                example: 'ホワイト国（グループA）向けにはキャッチオール規制自体が適用除外となる点も重要。'
+            },
+            {
+                id: 4,
+                category: 'group_a',
+                categoryLabel: 'グループA・ホワイト国',
+                term: 'グループA（旧ホワイト国）',
+                definition: '国際的な輸出管理体制に参加し、厳格な輸出管理を行っている国（米国、英国、ドイツ、フランスなど）。',
+                example: '特典：キャッチオール規制の適用対象外。リスト規制品以外は基本的にスムーズに輸出可能。'
+            },
+            {
+                id: 5,
+                category: 'exemptions',
+                categoryLabel: '特例・例外規定',
+                term: '少額特例（貨物）',
+                definition: '一定金額以下（100万円、50万円等）のリスト規制貨物を輸出する場合、経済産業大臣の許可が不要となる特例。',
+                example: '注意：大量破壊兵器関連（1項）や特定の地域・用途には少額特例が適用不可！'
+            },
+            {
+                id: 6,
+                category: 'exemptions',
+                categoryLabel: '特例・例外規定',
+                term: '公知の技術（技術特例）',
+                definition: 'すでに新聞、学会誌、インターネット等で公開されている技術、または市販プログラムを提供する場合は25条の許可不要。',
+                example: '試験ポイント：「公知の技術」の提供は経済産業大臣の許可を要しない。'
+            },
+            {
+                id: 7,
+                category: 'cargo_tech',
+                categoryLabel: '貨物 vs 技術',
+                term: '非居住者・居住者（特定類型）',
+                definition: '外為法上の「居住者」であっても、外国政府や外国法人から強い影響を受けている場合（特定類型）は、技術提供時に許可が必要となる。',
+                example: '実務上のトレンド：特定類型（Type 1〜3）の確認手続は企業内部管理で重視される。'
+            },
+            {
+                id: 8,
+                category: 'catchall',
+                categoryLabel: 'キャッチオール規制',
+                term: 'ホワイト国以外の地域（グループB〜D）',
+                definition: 'グループA以外の国・地域。大量破壊兵器キャッチオールおよび通常兵器キャッチオールの確認が必要。',
+                example: '国連武器禁輸国・地域（グループDに含まれる）向けは通常兵器用途も厳格確認。'
+            },
+            {
+                id: 9,
+                category: 'exemptions',
+                categoryLabel: '特例・例外規定',
+                term: '無償のサンプル・修理用部品',
+                definition: '無償で提供する場合であっても、リスト規制該当品であれば原則として許可が必要（無償＝規制対象外ではない）。',
+                example: '典型的なひっかけ：「無償サンプルとして送付する場合は許可不要である」→ ×誤り！'
+            },
+            {
+                id: 10,
+                category: 'cargo_tech',
+                categoryLabel: '社内管理',
+                term: '輸出管理内部規程（CP）',
+                definition: '企業が自主的に安全保障貿易管理を行うための社内ルール。役員の責任明確化や取引審査体制を規定。',
+                example: '経済産業省へのCP届出により、包括許可制度の利用条件を満たすことができる。'
+            }
+        ];
+
+        // Quiz Questions Database
+        const quizQuestionsData = [
+            {
+                id: 1,
+                category: '貨物 vs 技術',
+                question: '次のうち、外為法第25条（役務取引）の対象となる行為として正しいものはどれですか？',
+                options: [
+                    '海外の顧客へ測定用センサーの製品本体（実物）を海上輸送で出荷した。',
+                    '海外の提携企業へ、製品の製造手順や設計ノウハウを電子メールで送信した。',
+                    '国内の自社工場内で、日本人の自社社員に対して製造作業の指導を行った。',
+                    '市販されている取扱説明書（公知の資料）を印刷して海外顧客へ郵送した。'
+                ],
+                correctIndex: 1,
+                explanation: '外為法第25条は「技術（役務）」の提供を規制します。電子メール等での設計ノウハウ送信は技術提供に該当します。製品本体は第48条（貨物）であり、公知の資料提供は特例により許可不要です。'
+            },
+            {
+                id: 2,
+                category: 'キャッチオール規制',
+                question: 'キャッチオール規制に関する説明として、最も適切なものはどれですか？',
+                options: [
+                    'グループA国（旧ホワイト国）向けの輸出であっても、キャッチオール規制の客観要件を確認しなければならない。',
+                    '経済産業大臣からのインフォーム通知がない限り、輸出者は許可申請を行う必要はない。',
+                    'リスト規制に該当しない貨物であっても、大量破壊兵器等の開発等に用いられるおそれがある場合は許可申請が必要である。',
+                    '無償で送付する展示用サンプルであれば、キャッチオール規制の確認は免除される。'
+                ],
+                correctIndex: 2,
+                explanation: '正解は3です。キャッチオール規制はリスト非該当品（16項）であっても大量破壊兵器や通常兵器への転用リスクがある場合に許可を求める制度です。グループA向けは適用外であり、無償サンプルでも免除されません。'
+            },
+            {
+                id: 3,
+                category: '特例・例外規定',
+                question: '輸出管理における「特例（許可を要しない取引）」に関する記述として、正しいものはどれですか？',
+                options: [
+                    '基礎科学分野の初歩的な研究成果に属する技術の提供は、経済産業大臣の許可を要しない。',
+                    'リスト規制1項（大量破壊兵器関連）に該当する貨物であっても、取引額が10万円以下であれば少額特例が適用できる。',
+                    '製品の無償交換用部品であれば、リスト規制該当品であっても一切の例外なく無条件で許可不要となる。',
+                    'インターネット上で誰でも自由に閲覧できるWebサイトで公開されている技術プログラムを送信する場合でも、事前に大臣許可が必要である。'
+                ],
+                correctIndex: 0,
+                explanation: '正解は1です。「基礎科学分野の研究で得られた技術」や「すでに公知となっている技術（4）」は技術特例として許可不要です。1項該当品には少額特例は適用できません（2は誤り）。'
+            },
+            {
+                id: 4,
+                category: 'グループA・ホワイト国',
+                question: 'グループA（旧ホワイト国）に関する説明として、誤っているものはどれですか？',
+                options: [
+                    'グループA国には、アメリカ、イギリス、フランス、ドイツなどが含まれる。',
+                    'グループA国向けの輸出においては、キャッチオール規制（客観要件・インフォーム要件）は適用されない。',
+                    'リスト規制1～15項に該当する貨物をグループA国へ輸出する場合、常に経済産業大臣の許可が不要となる。',
+                    '国際的な平和と安全の維持のため、厳格な輸出管理制度を維持している国々である。'
+                ],
+                correctIndex: 2,
+                explanation: '誤っている（正解の）記述は3です！グループA国向けであっても、「リスト規制（1〜15項）に該当する貨物」を輸出する場合は原則として許可が必要です。（免除されるのはキャッチオール規制です）'
+            },
+            {
+                id: 5,
+                category: '社内管理',
+                question: '企業における自主的な「輸出管理内部規程（CP）」に関する記述として適切なものはどれですか？',
+                options: [
+                    'CPを策定し経済産業省へ届け出た企業は、外為法上の法令遵守義務が全額免除される。',
+                    'CPには、最高責任者（役員等）の設置、取引審査の手順、社内監査体制などを定める。',
+                    'CPの策定は、すべての輸出企業に対して外為法上、法律で一律義務付けられている。',
+                    '一度CPを策定すれば、法令改正があっても変更・改訂を行う必要はない。'
+                ],
+                correctIndex: 1,
+                explanation: '正解は2です。CP（Compliance Program）には責任体制や審査・監査基準を明記します。法令上の罰則免除や一律強制義務ではありませんが、適切なコンプライアンス管理のために極めて重要です。'
+            }
+        ];
+
+        /* ==================== STATE MANAGEMENT ==================== */
+        let state = {
+            activeTab: 'flashcards',
+            cards: [...flashcardsData],
+            currentCategory: 'all',
+            currentCardIndex: 0,
+            isFlipped: false,
+            masteredCardIds: new Set(JSON.parse(localStorage.getItem('stc_mastered_ids') || '[]')),
+            
+            // Quiz State
+            quizLength: 5,
+            quizActive: false,
+            quizQuestions: [],
+            quizCurrentIndex: 0,
+            quizUserAnswers: [],
+            quizTimerInterval: null,
+            quizSecondsElapsed: 0,
+
+            // History & Statistics
+            quizHistory: JSON.parse(localStorage.getItem('stc_quiz_history') || '[]')
+        };
+
+        let progressChartInstance = null;
+
+        /* ==================== INITIALIZATION ==================== */
+        window.addEventListener('DOMContentLoaded', () => {
+            // Update Realtime clock
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Initialize Lucide Icons
+            lucide.createIcons();
+
+            // Load Progress Chart
+            initChart();
+
+            // Render First Card
+            renderFlashcard();
+            updateMasteryStats();
+        });
+
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+
+        /* ==================== NAVIGATION / TABS ==================== */
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+
+            // Hide all views
+            document.getElementById('flashcardsView').classList.add('hidden');
+            document.getElementById('quizView').classList.add('hidden');
+            document.getElementById('progressView').classList.add('hidden');
+
+            // Reset Tab Button styles
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn flex flex-col items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200";
+            });
+
+            // Show selected view and activate tab
+            if (tabName === 'flashcards') {
+                document.getElementById('flashcardsView').classList.remove('hidden');
+                document.getElementById('tab-flashcards').className = "tab-btn flex flex-col items-center text-ios-blue";
+                document.getElementById('headerTitle').textContent = "STC Associate";
+                document.getElementById('headerSubtitle').textContent = "安全保障貿易管理 対策";
+            } else if (tabName === 'quiz') {
+                document.getElementById('quizView').classList.remove('hidden');
+                document.getElementById('tab-quiz').className = "tab-btn flex flex-col items-center text-ios-blue";
+                document.getElementById('headerTitle').textContent = "本試験 模試クイズ";
+                document.getElementById('headerSubtitle').textContent = "出題パターン徹底演習";
+            } else if (tabName === 'progress') {
+                document.getElementById('progressView').classList.remove('hidden');
+                document.getElementById('tab-progress').className = "tab-btn flex flex-col items-center text-ios-blue";
+                document.getElementById('headerTitle').textContent = "学習進捗ダッシュボード";
+                document.getElementById('headerSubtitle').textContent = "マスター率と弱点分析";
+                updateProgressDashboard();
+            }
+        }
+
+        /* ==================== FLASHCARD LOGIC ==================== */
+        function filterFlashcards(category) {
+            state.currentCategory = category;
+            state.currentCardIndex = 0;
+            state.isFlipped = false;
+
+            // Active category styling
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.className = "cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition";
+            });
+            document.getElementById(`cat-${category}`).className = "cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-ios-blue text-white shadow-sm transition";
+
+            if (category === 'all') {
+                state.cards = [...flashcardsData];
+            } else {
+                state.cards = flashcardsData.filter(c => c.category === category);
+            }
+
+            renderFlashcard();
+        }
+
+        function renderFlashcard() {
+            const cardInner = document.getElementById('cardInner');
+            if (state.isFlipped) {
+                cardInner.classList.remove('rotate-y-180');
+                state.isFlipped = false;
+            }
+
+            if (state.cards.length === 0) {
+                document.getElementById('cardTerm').textContent = "該当する単語がありません";
+                document.getElementById('cardCategory').textContent = "-";
+                document.getElementById('cardCounter').textContent = "0 / 0";
+                return;
+            }
+
+            const current = state.cards[state.currentCardIndex];
+            document.getElementById('cardCategory').textContent = current.categoryLabel;
+            document.getElementById('cardCategoryBack').textContent = current.categoryLabel;
+            document.getElementById('cardTerm').textContent = current.term;
+            document.getElementById('cardDefinition').innerHTML = current.definition;
+            document.getElementById('cardExample').innerHTML = `<b>試験対策の肝:</b> ${current.example}`;
+            
+            document.getElementById('cardCounter').textContent = `${state.currentCardIndex + 1} / ${state.cards.length}`;
+
+            // Mastery status
+            const isMastered = state.masteredCardIds.has(current.id);
+            const badge = document.getElementById('cardMasteryBadge');
+            const btnText = document.getElementById('masteredBtnText');
+
+            if (isMastered) {
+                badge.textContent = "習得済み";
+                badge.className = "px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-ios-green font-bold text-[10px]";
+                btnText.textContent = "復習対象に戻す";
+            } else {
+                badge.textContent = "未習得";
+                badge.className = "px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px]";
+                btnText.textContent = "覚えたに設定";
+            }
+        }
+
+        function flipCard() {
+            if (state.cards.length === 0) return;
+            const cardInner = document.getElementById('cardInner');
+            state.isFlipped = !state.isFlipped;
+            if (state.isFlipped) {
+                cardInner.classList.add('rotate-y-180');
+            } else {
+                cardInner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function nextCard() {
+            if (state.cards.length === 0) return;
+            state.currentCardIndex = (state.currentCardIndex + 1) % state.cards.length;
+            renderFlashcard();
+        }
+
+        function prevCard() {
+            if (state.cards.length === 0) return;
+            state.currentCardIndex = (state.currentCardIndex - 1 + state.cards.length) % state.cards.length;
+            renderFlashcard();
+        }
+
+        function toggleMastered() {
+            if (state.cards.length === 0) return;
+            const current = state.cards[state.currentCardIndex];
+            if (state.masteredCardIds.has(current.id)) {
+                state.masteredCardIds.delete(current.id);
+            } else {
+                state.masteredCardIds.add(current.id);
+            }
+            localStorage.setItem('stc_mastered_ids', JSON.stringify([...state.masteredCardIds]));
+            renderFlashcard();
+            updateMasteryStats();
+        }
+
+        /* ==================== QUIZ LOGIC ==================== */
+        function setQuizLength(len) {
+            state.quizLength = len;
+            document.querySelectorAll('.qlen-btn').forEach(btn => {
+                btn.className = "qlen-btn py-3 px-4 rounded-2xl bg-white dark:bg-ios-cardBgDark text-slate-700 dark:text-slate-300 font-semibold text-xs text-center border border-slate-200 dark:border-slate-800 active-press";
+            });
+            document.getElementById(`qlen-${len}`).className = "qlen-btn py-3 px-4 rounded-2xl bg-ios-blue text-white font-semibold text-xs text-center border-2 border-ios-blue active-press";
+        }
+
+        function startQuiz() {
+            // Shuffle and pick questions
+            const shuffled = [...quizQuestionsData].sort(() => 0.5 - Math.random());
+            state.quizQuestions = shuffled.slice(0, state.quizLength);
+            state.quizCurrentIndex = 0;
+            state.quizUserAnswers = [];
+            state.quizActive = true;
+            state.quizSecondsElapsed = 0;
+
+            // UI Switch
+            document.getElementById('quizStartScreen').classList.add('hidden');
+            document.getElementById('quizResultScreen').classList.add('hidden');
+            document.getElementById('quizActiveScreen').classList.remove('hidden');
+
+            // Timer
+            clearInterval(state.quizTimerInterval);
+            state.quizTimerInterval = setInterval(() => {
+                state.quizSecondsElapsed++;
+                const mins = String(Math.floor(state.quizSecondsElapsed / 60)).padStart(2, '0');
+                const secs = String(state.quizSecondsElapsed % 60).padStart(2, '0');
+                document.getElementById('quizTimer').textContent = `${mins}:${secs}`;
+            }, 1000);
+
+            renderQuizQuestion();
+        }
+
+        function renderQuizQuestion() {
+            const q = state.quizQuestions[state.quizCurrentIndex];
+            
+            document.getElementById('quizProgressText').textContent = `問題 ${state.quizCurrentIndex + 1} / ${state.quizQuestions.length}`;
+            const progressPercent = ((state.quizCurrentIndex) / state.quizQuestions.length) * 100;
+            document.getElementById('quizProgressBar').style.width = `${progressPercent}%`;
+
+            document.getElementById('quizCategoryTag').textContent = q.category;
+            document.getElementById('quizQuestionText').textContent = q.question;
+
+            // Hide explanation & Next button
+            document.getElementById('quizExplanationBox').classList.add('hidden');
+            document.getElementById('nextQuestionBtn').classList.add('hidden');
+
+            // Render Options
+            const container = document.getElementById('quizOptionsContainer');
+            container.innerHTML = '';
+
+            q.options.forEach((optText, idx) => {
+                const optBtn = document.createElement('button');
+                optBtn.className = "quiz-opt-btn w-full p-3.5 rounded-2xl bg-white dark:bg-ios-cardBgDark border border-slate-200 dark:border-slate-800 text-left text-xs font-medium text-slate-800 dark:text-slate-200 active-press transition flex items-start space-x-3";
+                optBtn.onclick = () => handleAnswerSelect(idx);
+                optBtn.innerHTML = `
+                    <span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">${idx + 1}</span>
+                    <span class="leading-relaxed">${optText}</span>
+                `;
+                container.appendChild(optBtn);
+            });
+        }
+
+        function handleAnswerSelect(selectedIdx) {
+            const q = state.quizQuestions[state.quizCurrentIndex];
+            const isCorrect = selectedIdx === q.correctIndex;
+
+            state.quizUserAnswers.push({
+                questionId: q.id,
+                selected: selectedIdx,
+                correct: q.correctIndex,
+                isCorrect: isCorrect
+            });
+
+            // Disable option buttons and highlight correct/wrong
+            const optBtns = document.querySelectorAll('.quiz-opt-btn');
+            optBtns.forEach((btn, idx) => {
+                btn.onclick = null; // Disable further clicks
+                if (idx === q.correctIndex) {
+                    btn.className = "w-full p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border-2 border-ios-green text-left text-xs font-semibold text-emerald-900 dark:text-emerald-300 flex items-start space-x-3";
+                } else if (idx === selectedIdx && !isCorrect) {
+                    btn.className = "w-full p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border-2 border-ios-red text-left text-xs font-semibold text-rose-900 dark:text-rose-300 flex items-start space-x-3";
+                } else {
+                    btn.className = "w-full p-3.5 rounded-2xl bg-white dark:bg-ios-cardBgDark border border-slate-200 dark:border-slate-800 text-left text-xs text-slate-400 opacity-60 flex items-start space-x-3";
+                }
+            });
+
+            // Show Explanation Box
+            document.getElementById('quizExplanationText').textContent = q.explanation;
+            document.getElementById('quizExplanationBox').classList.remove('hidden');
+
+            // Show Next Button
+            document.getElementById('nextQuestionBtn').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            state.quizCurrentIndex++;
+            if (state.quizCurrentIndex < state.quizQuestions.length) {
+                renderQuizQuestion();
+            } else {
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            clearInterval(state.quizTimerInterval);
+            state.quizActive = false;
+
+            const correctCount = state.quizUserAnswers.filter(a => a.isCorrect).length;
+            const scorePercent = Math.round((correctCount / state.quizQuestions.length) * 100);
+
+            // Save history
+            const historyItem = {
+                date: new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                score: scorePercent,
+                correct: correctCount,
+                total: state.quizQuestions.length
+            };
+            state.quizHistory.unshift(historyItem);
+            if (state.quizHistory.length > 10) state.quizHistory.pop();
+            localStorage.setItem('stc_quiz_history', JSON.stringify(state.quizHistory));
+
+            // Update Result UI
+            document.getElementById('quizScoreText').textContent = `${scorePercent}%`;
+            document.getElementById('quizCorrectCountText').textContent = `${correctCount} / ${state.quizQuestions.length}`;
+
+            document.getElementById('quizActiveScreen').classList.add('hidden');
+            document.getElementById('quizResultScreen').classList.remove('hidden');
+        }
+
+        /* ==================== PROGRESS & ANALYTICS ==================== */
+        function updateMasteryStats() {
+            const masteredCount = state.masteredCardIds.size;
+            const totalCount = flashcardsData.length;
+            const percent = Math.round((masteredCount / totalCount) * 100);
+
+            document.getElementById('statMasteryPercent').textContent = `${percent}%`;
+            document.getElementById('statMasteredCount').textContent = masteredCount;
+            document.getElementById('statTotalCards').textContent = totalCount;
+        }
+
+        function updateProgressDashboard() {
+            updateMasteryStats();
+
+            // Quiz Averages
+            if (state.quizHistory.length > 0) {
+                const totalScores = state.quizHistory.reduce((acc, item) => acc + item.score, 0);
+                const avg = Math.round(totalScores / state.quizHistory.length);
+                document.getElementById('statQuizAvg').textContent = `${avg}%`;
+                document.getElementById('statQuizCount').textContent = state.quizHistory.length;
+            } else {
+                document.getElementById('statQuizAvg').textContent = "--";
+                document.getElementById('statQuizCount').textContent = "0";
+            }
+
+            // Render History List
+            const historyContainer = document.getElementById('quizHistoryList');
+            if (state.quizHistory.length === 0) {
+                historyContainer.innerHTML = `<p class="text-center text-slate-400 py-4">履歴はまだありません</p>`;
+            } else {
+                historyContainer.innerHTML = state.quizHistory.map(item => `
+                    <div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <span class="text-slate-500 font-medium">${item.date}</span>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-slate-800 dark:text-slate-200">${item.correct}/${item.total} (${item.score}%)</span>
+                            <span class="w-2 h-2 rounded-full ${item.score >= 80 ? 'bg-ios-green' : 'bg-ios-orange'}"></span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update Chart Data
+            if (progressChartInstance) {
+                const mastered = state.masteredCardIds.size;
+                const unmastered = flashcardsData.length - mastered;
+                progressChartInstance.data.datasets[0].data = [mastered, unmastered];
+                progressChartInstance.update();
+            }
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            progressChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['暗記済み', '未習得'],
+                    datasets: [{
+                        data: [state.masteredCardIds.size, flashcardsData.length - state.masteredCardIds.size],
+                        backgroundColor: ['#34C759', '#E5E5EA'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { family: 'Inter', size: 11 },
+                                boxWidth: 12
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        /* ==================== SYSTEM HELPERS ==================== */
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function resetAllData() {
+            if (confirm('学習データ（暗記フラグ・過去のクイズ履歴）をリセットしますか？')) {
+                localStorage.removeItem('stc_mastered_ids');
+                localStorage.removeItem('stc_quiz_history');
+                state.masteredCardIds.clear();
+                state.quizHistory = [];
+                renderFlashcard();
+                updateProgressDashboard();
+            }
+        }
+    </script>
+    <script>
+        // PWA service worker registration (requires HTTPS or localhost).
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+                    console.error("Service Worker registration failed:", error);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
